@@ -3,12 +3,12 @@ local events = require('timeEvents').create()
 local procPrimitives = require('util/trackBuilder/proceduralPrimitives')
 local ffi = require('ffi')
 
-local version = "14.0.0"
+local version = "1.0.0"
 local configVersion = "0.0.0"
 local pendingQuit = false
 
 local im = ui_imgui
-local showUI = im.BoolPtr(true)
+local showUI = im.BoolPtr(false)
 
 -- post processing settings
 
@@ -447,6 +447,11 @@ end
 local function onExtensionLoaded()
   listProfiles()
   loadSettings()
+
+  if configVersion ~= version then
+    saveSettings()
+    messageBox("GfxSuite", "New version of GFX Suite installed. It is recommended to clear the '%localappdata%/BeamNG.drive/latest/temp/shaders' folder in order to recompile the shaders and start the game again. If it's your first time installing this mod you can ignore this message.", 0, 0)
+  end
 end
 
 skyboxManager.createSky = function()
@@ -731,6 +736,10 @@ end
 
 local function imRender()
 
+  if not showUI[0] then
+    return
+  end
+
   pushImStyle()
 
   im.SetNextWindowSizeConstraints(im.ImVec2(500, 800), im.ImVec2(500, 800))
@@ -740,6 +749,11 @@ local function imRender()
   end
 
   imPopStyle()
+end
+
+local function toggleWindow()
+  showUI[0] = not showUI[0]
+  log('I', '', "GFX Suite is now " .. (showUI[0] and "visible" or "hidden"))
 end
 
 local function onSettingsChanged()
@@ -805,4 +819,5 @@ M.onClientPostStartMission = onClientPostStartMission
 M.onUpdate = onUpdate
 M.onSettingsChanged = onSettingsChanged
 M.onExit = onExit
+M.toggleWindow = toggleWindow
 return M

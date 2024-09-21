@@ -1,0 +1,8 @@
+{
+    "bindings":[
+        {
+        "action":"gfxSuiteToggleWindow",
+        "control":"="
+        }
+    ]
+}

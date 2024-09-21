@@ -1,0 +1,3 @@
+{
+    "gfxSuiteToggleWindow": {"cat":"debug", "order": 1, "ctx": "tlua", "onDown" :"extensions.gfxSuite.toggleWindow()", "actionMap": "Global", "title": "Toggle GfxSuite Window", "desc": "Toggles the GfxSuite window."}
+}
