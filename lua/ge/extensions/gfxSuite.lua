@@ -720,7 +720,7 @@ local function drawWindowContent()
 
       im.InputText("Profile Name", newProfileName)
 
-      if imButton("Save Profile", 60) then
+      if imButton("Save Profile", 40) then
         local newProfileNameString = ffi.string(newProfileName)
         saveProfile(newProfileNameString)
         activeProfile = newProfileNameString
