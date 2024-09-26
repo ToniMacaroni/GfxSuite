@@ -128,6 +128,13 @@ miscOptions["shadowSoftness"] = {
     ctx.sky:postApply()
   end
 }
+miscOptions["shadowLogWeight"] = {
+  name = "Log Weight", type = "float", min = 0.0, max = 100.0, value = im.FloatPtr(66.8),
+  setter = function(value, ctx)
+    ctx.sky.logWeight = value * 0.0003 + 0.97
+    ctx.sky:postApply()
+  end
+}
 miscOptions["terrainDetail"] = {
   name = "Terrain Detail", type = "float", min = 0.0, max = 1.0, value = im.FloatPtr(0.4),
   setter = function(value, ctx)
@@ -153,17 +160,27 @@ local environmentOptions = {header = "Environment"}
 environmentOptions["time"] = {
   name = "Time", type = "float", min = 0.0, max = 100.0, value = im.FloatPtr(83.0),
   setter = function(value, ctx)
+    local tempSunScale = ctx.sky.sunScale
+
     local time = core_environment.getTimeOfDay()
     time.time = value/100.0
     core_environment.setTimeOfDay(time)
+
+    ctx.sky.sunScale = tempSunScale
+    ctx.sky:postApply()
   end
 }
 environmentOptions["azimuth"] = {
   name = "Sun Direction", type = "float", min = 0.0, max = 360.0, value = im.FloatPtr(0.0),
   setter = function(value, ctx)
+    local tempSunScale = ctx.sky.sunScale
+
     local time = core_environment.getTimeOfDay()
     time.azimuthOverride = value/180.0*math.pi
     core_environment.setTimeOfDay(time)
+
+    ctx.sky.sunScale = tempSunScale
+    ctx.sky:postApply()
   end
 }
 environmentOptions["light"] = {
@@ -564,6 +581,7 @@ local function onClientPostStartMission()
   listSkies()
 
   ctx.skyboxManager = skyboxManager
+  ctx.options = options
 
   local meshNames = scenetree.findClassObjects('ScatterSky')
   for k,v in pairs(meshNames) do
@@ -810,6 +828,12 @@ local function onUpdate(dt)
   imRender()
 end
 
+local function onCameraToggled(parms)
+  if parms.cameraType == "FreeCam" then
+    environmentOptions["fov"].setter(environmentOptions["fov"].value[0], ctx)    
+  end
+end
+
 local function onExit()
   saveSettings()
 end
@@ -820,4 +844,5 @@ M.onUpdate = onUpdate
 M.onSettingsChanged = onSettingsChanged
 M.onExit = onExit
 M.toggleWindow = toggleWindow
+M.onCameraToggled = onCameraToggled
 return M
