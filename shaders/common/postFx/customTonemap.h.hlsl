@@ -21,6 +21,8 @@ cbuffer perDraw
     uniform float hue;
     uniform float saturation;
     uniform float exposure;
+
+    uniform float3 tint;
     
     PURE_POSTFX_UNIFORMS
     BNG_LIGHTING_UNIFORMS

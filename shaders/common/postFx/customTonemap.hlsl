@@ -81,6 +81,7 @@ float4 mainP(PFXVertToPix IN) : SV_Target
     sceneColor = rgb2hsv(sceneColor) * float3(hue, saturation, 1.0);
     sceneColor = hsv2rgb(sceneColor);
     sceneColor = adjustExposure(sceneColor, exposure);
+    sceneColor = sceneColor * tint;
 
     return float4(sceneColor, 1.0);
 }

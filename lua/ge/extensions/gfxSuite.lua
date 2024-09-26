@@ -93,6 +93,12 @@ tonemappingExtrasOptions["exposure"] = {
     ctx.tonemappingFx:setShaderConst("$exposure", value)
   end
 }
+tonemappingExtrasOptions["tint"] = {
+  name = "Tint", type = "color", value = im.ArrayFloat(4),
+  setter = function(value, ctx)
+    ctx.tonemappingFx:setShaderConst("$tint", string.format("%f %f %f %f", value[0], value[1], value[2], value[3]))
+  end
+}
 
 -- misc stuff
 
@@ -313,6 +319,7 @@ end
 
 miscOptions["shadowSoftness"].value[0] = 2.5
 setImArray(environmentOptions["sunScale"].value, 0.776, 0.582, 0.448, 1.0)
+setImArray(tonemappingExtrasOptions["tint"].value, 1.0, 1.0, 1.0, 1.0)
 
 local ctx = {}
 local skyboxManager = { activeSky = {name = "partially_cloudy", dir = "art/custom_skies"} }
