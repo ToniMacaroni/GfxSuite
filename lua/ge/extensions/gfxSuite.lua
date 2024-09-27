@@ -321,6 +321,9 @@ miscOptions["shadowSoftness"].value[0] = 2.5
 setImArray(environmentOptions["sunScale"].value, 0.776, 0.582, 0.448, 1.0)
 setImArray(tonemappingExtrasOptions["tint"].value, 1.0, 1.0, 1.0, 1.0)
 
+-- extras
+local cameraSpeed = im.FloatPtr(0.1)
+
 local ctx = {}
 local skyboxManager = { activeSky = {name = "partially_cloudy", dir = "art/custom_skies"} }
 local skyDirs = {}
@@ -387,7 +390,13 @@ local function loadProfile(profileName, refreshTables)
     if options[k] then
       for k2,v2 in pairs(v) do
         if options[k][k2] then
-          options[k][k2].value[0] = v2
+          if options[k][k2].type == "color" then
+            local values = string.split(v2, " ")
+            if #values == 1 then values = {v2, 0.0, 0.0, 1.0} end
+            setImArray(options[k][k2].value, values[1], values[2], values[3], values[4])
+          else
+            options[k][k2].value[0] = v2
+          end
         end
       end
     end
@@ -444,7 +453,11 @@ local function saveProfile(profileName)
     data[k] = {}
     for k2,v2 in pairs(v) do
       if k2 ~= "header" then
-        data[k][k2] = v2.value[0]
+        if v2.type == "color" then
+          data[k][k2] = string.format("%f %f %f %f", v2.value[0], v2.value[1], v2.value[2], v2.value[3])
+        else
+          data[k][k2] = v2.value[0]
+        end
       end
     end
   end
