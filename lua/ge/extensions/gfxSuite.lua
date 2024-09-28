@@ -109,6 +109,26 @@ miscOptions["ssaoSamples"] = {
     scenetree.SSAOPostFx:setSamples(value and 64 or 16)
   end
 }
+miscOptions["enableSMAA"] = {
+  name = "Enable SMAA", type = "bool", value = im.BoolPtr(false),
+  setter = function(value, ctx)
+    if value then
+      scenetree.findObject("SMAA_PostEffect"):enable()
+    else
+      scenetree.findObject("SMAA_PostEffect"):disable()
+    end
+  end
+}
+miscOptions["enableFXAA"] = {
+  name = "Enable FXAA", type = "bool", value = im.BoolPtr(false),
+  setter = function(value, ctx)
+    if value then
+      scenetree.findObject("FXAA_PostEffect"):enable()
+    else
+      scenetree.findObject("FXAA_PostEffect"):disable()
+    end
+  end
+}
 miscOptions["ssaoRadius"] = {
   name = "SSAO Radius", type = "float", min = 0, max = 10, value = im.FloatPtr(1.5),
   setter = function(value, ctx)
@@ -216,10 +236,24 @@ environmentOptions["fogAmount"] = {
     core_environment.setFogDensity(value * 0.0001)
   end
 }
+environmentOptions["fogColor"] = {
+  name = "Fog Color", type = "color", value = im.ArrayFloat(4),
+  setter = function(value, ctx)
+    scenetree.theLevelInfo.fogColor = Point4F(value[0], value[1], value[2], value[3])
+    scenetree.theLevelInfo:postApply()
+  end
+}
 environmentOptions["fov"] = {
   name = "Camera FOV", type = "float", min = 10, max = 90, value = im.FloatPtr(60),
   setter = function(value, ctx)
     core_camera.setFOV(0, value)
+  end
+}
+environmentOptions["rayleighScattering"] = {
+  name = "Rayleigh Scattering", type = "float", min = 0.0, max = 100.0, value = im.FloatPtr(14),
+  setter = function(value, ctx)
+    ctx.sky.rayleighScattering = value * 0.0001
+    ctx.sky:postApply()
   end
 }
 
@@ -320,9 +354,17 @@ end
 miscOptions["shadowSoftness"].value[0] = 2.5
 setImArray(environmentOptions["sunScale"].value, 0.776, 0.582, 0.448, 1.0)
 setImArray(tonemappingExtrasOptions["tint"].value, 1.0, 1.0, 1.0, 1.0)
+setImArray(environmentOptions["fogColor"].value, 0.402, 0.374, 0.322, 1.0)
 
--- extras
-local cameraSpeed = im.FloatPtr(0.1)
+-- set default values
+for k,v in pairs(options) do
+  for k2,v2 in pairs(v) do
+    if k2 ~= "header" then
+      if v2.type == "color" then v2["defaultValue"] = v2.value
+      else v2["defaultValue"] = v2.value[0] end
+    end
+  end
+end
 
 local ctx = {}
 local skyboxManager = { activeSky = {name = "partially_cloudy", dir = "art/custom_skies"} }
@@ -346,9 +388,28 @@ local function refreshTable(table)
   end
 end
 
+local function revertTable(table)
+  for k,v in pairs(table) do
+    if k ~= "header" then
+      if v.type == "color" then
+        setImArray(v.value, v.defaultValue[0], v.defaultValue[1], v.defaultValue[2], v.defaultValue[3])
+      else
+        v.value[0] = v.defaultValue
+      end
+      v.setter(v.defaultValue, ctx)
+    end
+  end
+end
+
 local function refreshOptionsAll()
   for k,v in pairs(options) do
     refreshTable(v)
+  end
+end
+
+local function revertOptionsAll()
+  for k,v in pairs(options) do
+    revertTable(v)
   end
 end
 
@@ -393,7 +454,7 @@ local function loadProfile(profileName, refreshTables)
           if options[k][k2].type == "color" then
             local values = string.split(v2, " ")
             if #values == 1 then values = {v2, 0.0, 0.0, 1.0} end
-            setImArray(options[k][k2].value, values[1], values[2], values[3], values[4])
+            setImArray(options[k][k2].value, tonumber(values[1]), tonumber(values[2]), tonumber(values[3]), tonumber(values[4]))
           else
             options[k][k2].value[0] = v2
           end
@@ -601,30 +662,15 @@ local function onClientPostStartMission()
   listSkies()
 
   ctx.skyboxManager = skyboxManager
-  ctx.options = options
 
   local meshNames = scenetree.findClassObjects('ScatterSky')
   for k,v in pairs(meshNames) do
     local m = scenetree.findObject(v)
     if not m then log("E", "", "ScatterSky broken "..dumps(v))
     else
-      m.skyBrightness = 120.0
-      m.rayleighScattering = 0.0014
-      m.sunScale = Point4F(0.776, 0.582, 0.448, 1.0)
-      m.brightness = 0.7
       m.texSize = 4096
       m.shadowDistance = 1600
-      m.logWeight = 0.99
       m.exposure = 2.0
-    end
-  end
-
-  meshNames = scenetree.findClassObjects('LevelInfo')
-  for k,v in pairs(meshNames) do
-    local m = scenetree.findObject(v)
-    if m then
-      m.fogDensity = 0.0001
-      m.fogColor = Point4F(0.402, 0.374, 0.322, 1.0)
     end
   end
 
@@ -763,6 +809,12 @@ local function drawWindowContent()
         saveProfile(newProfileNameString)
         activeProfile = newProfileNameString
         listProfiles()
+      end
+
+      im.Spacing()
+
+      if imButton("Reset all values", 40) then
+        revertOptionsAll()
       end
 
       im.EndTabItem()
