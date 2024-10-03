@@ -109,26 +109,6 @@ miscOptions["ssaoSamples"] = {
     scenetree.SSAOPostFx:setSamples(value and 64 or 16)
   end
 }
-miscOptions["enableSMAA"] = {
-  name = "Enable SMAA", type = "bool", value = im.BoolPtr(false),
-  setter = function(value, ctx)
-    if value then
-      scenetree.findObject("SMAA_PostEffect"):enable()
-    else
-      scenetree.findObject("SMAA_PostEffect"):disable()
-    end
-  end
-}
-miscOptions["enableFXAA"] = {
-  name = "Enable FXAA", type = "bool", value = im.BoolPtr(false),
-  setter = function(value, ctx)
-    if value then
-      scenetree.findObject("FXAA_PostEffect"):enable()
-    else
-      scenetree.findObject("FXAA_PostEffect"):disable()
-    end
-  end
-}
 miscOptions["ssaoRadius"] = {
   name = "SSAO Radius", type = "float", min = 0, max = 10, value = im.FloatPtr(1.5),
   setter = function(value, ctx)
@@ -333,6 +313,35 @@ bloomOptions["knee"] = {
   end
 }
 
+-- extra stuff
+
+local extraOptions = {header = "Extras"}
+extraOptions["enableFXAA"] = {
+  name = "Enable FXAA", type = "bool", value = im.BoolPtr(false),
+  setter = function(value, ctx)
+    scenetree.findObject("FXAA_PostEffect"):disable()
+
+    if value then
+      scenetree.findObject("Custom_FXAA_PostEffect"):enable()
+    else
+      scenetree.findObject("Custom_FXAA_PostEffect"):disable()
+    end
+  end
+}
+extraOptions["enableSMAA"] = {
+  name = "Enable SMAA", type = "bool", value = im.BoolPtr(false),
+  setter = function(value, ctx)
+    scenetree.findObject("FXAA_PostEffect"):disable()
+    
+    if value then
+      scenetree.findObject("SMAA_PostEffect"):enable()
+    else
+      scenetree.findObject("SMAA_PostEffect"):disable()
+    end
+  end
+}
+
+
 local options = {
   ppOptions = ppOptions,
   tonemappingOptions = tonemappingOptions,
@@ -341,7 +350,8 @@ local options = {
   environmentOptions = environmentOptions,
   lightrayOptions = lightrayOptions,
   skyboxOptions = skyboxOptions,
-  bloomOptions = bloomOptions
+  bloomOptions = bloomOptions,
+  extraOptions = extraOptions
 }
 
 local function setImArray(imArray, ...)
@@ -452,8 +462,8 @@ local function loadProfile(profileName, refreshTables)
       for k2,v2 in pairs(v) do
         if options[k][k2] then
           if options[k][k2].type == "color" then
-            local values = string.split(v2, " ")
-            if #values == 1 then values = {v2, 0.0, 0.0, 1.0} end
+            local values = split(v2, " ")
+            if #values == 1 then values = {1.0, 1.0, 1.0, 1.0} end
             setImArray(options[k][k2].value, tonumber(values[1]), tonumber(values[2]), tonumber(values[3]), tonumber(values[4]))
           else
             options[k][k2].value[0] = v2
@@ -676,6 +686,8 @@ local function onClientPostStartMission()
 
   local postEffectCombinePass = scenetree.findObject("PostEffectCombinePassObject")
   postEffectCombinePass.enabled = 0.0
+
+  scenetree.findObject("FXAA_PostEffect"):disable()
 end
 
 local function pushImStyle()
@@ -786,6 +798,11 @@ local function drawWindowContent()
 
     if im.BeginTabItem("Environment") then
       renderTable(environmentOptions, false)
+      im.EndTabItem()
+    end
+
+    if im.BeginTabItem("Extras") then
+      renderTable(extraOptions, false)
       im.EndTabItem()
     end
 

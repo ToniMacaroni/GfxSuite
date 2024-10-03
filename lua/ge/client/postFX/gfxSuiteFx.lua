@@ -1,3 +1,7 @@
+if not scenetree.findObject("Custom_FXAA_PostEffect") then
+    rerequire("client/postFx/fxaaCustom")
+end
+
 local function createState(stateName)
     local stateBlock = scenetree.findObject(stateName)
     if stateBlock then
