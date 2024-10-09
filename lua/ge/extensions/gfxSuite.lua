@@ -389,6 +389,8 @@ local isTablesRefreshed = false
 local screenWidth = 2560
 local screenHeight = 1440
 
+local screenShotSuperSamplingPtr = im.IntPtr(1)
+
 local function refreshTable(table)
   for k,v in pairs(table) do
     if k ~= "header" then
@@ -690,6 +692,26 @@ local function onClientPostStartMission()
   scenetree.findObject("FXAA_PostEffect"):disable()
 end
 
+local function takeScreenshot()
+  local path = "screenshots/GFXSuite"
+  if not FS:directoryExists(path) then FS:directoryCreate(path) end
+  local screenshotDateTimeString = getScreenShotDateTimeString()
+  local subFilename = string.format("%s/screenshot_%s", path, screenshotDateTimeString)
+
+  local fullFilename
+  local screenshotNumber = 0
+  repeat
+    if screenshotNumber > 0 then
+      fullFilename = FS:expandFilename(string.format("%s_%s", subFilename, screenshotNumber))
+    else
+      fullFilename = FS:expandFilename(subFilename)
+    end
+    screenshotNumber = screenshotNumber + 1
+  until not FS:fileExists(fullFilename)
+  createScreenshot(fullFilename, "png", screenShotSuperSamplingPtr[0], 1, 0, nil)
+  log('I', '', "Screenshot taken")
+end
+
 local function pushImStyle()
   im.PushStyleVar2(im.StyleVar_WindowPadding, im.ImVec2(15, 15))
   im.PushStyleVar1(im.StyleVar_WindowRounding, 5.0)
@@ -803,6 +825,12 @@ local function drawWindowContent()
 
     if im.BeginTabItem("Extras") then
       renderTable(extraOptions, false)
+      im.Separator()
+      im.Text("Screenshot")
+      im.SliderInt("Super Sampling", screenShotSuperSamplingPtr, 1, 36)
+      if imButton("Take Screenshot") then
+        takeScreenshot()
+      end
       im.EndTabItem()
     end
 
