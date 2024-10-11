@@ -1,0 +1,2 @@
+- Added supersampled screenshot feature to the interface
+- Fixed fog being overwritten when using some environment options

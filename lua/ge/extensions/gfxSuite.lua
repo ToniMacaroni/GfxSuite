@@ -174,6 +174,8 @@ environmentOptions["time"] = {
 
     ctx.sky.sunScale = tempSunScale
     ctx.sky:postApply()
+
+    ctx["fogNeedsUpdating"] = true
   end
 }
 environmentOptions["azimuth"] = {
@@ -187,6 +189,8 @@ environmentOptions["azimuth"] = {
 
     ctx.sky.sunScale = tempSunScale
     ctx.sky:postApply()
+
+    ctx["fogNeedsUpdating"] = true
   end
 }
 environmentOptions["light"] = {
@@ -194,6 +198,8 @@ environmentOptions["light"] = {
   setter = function(value, ctx)
     ctx.sky.brightness = value
     ctx.sky:postApply()
+
+    ctx["fogNeedsUpdating"] = true
   end
 }
 environmentOptions["skyBrightness"] = {
@@ -201,6 +207,8 @@ environmentOptions["skyBrightness"] = {
   setter = function(value, ctx)
     ctx.sky.skyBrightness = value
     ctx.sky:postApply()
+
+    ctx["fogNeedsUpdating"] = true
   end
 }
 environmentOptions["sunScale"] = {
@@ -208,6 +216,8 @@ environmentOptions["sunScale"] = {
   setter = function(value, ctx)
     ctx.sky.sunScale = Point4F(value[0], value[1], value[2], value[3])
     ctx.sky:postApply()
+
+    ctx["fogNeedsUpdating"] = true
   end
 }
 environmentOptions["fogAmount"] = {
@@ -234,6 +244,8 @@ environmentOptions["rayleighScattering"] = {
   setter = function(value, ctx)
     ctx.sky.rayleighScattering = value * 0.0001
     ctx.sky:postApply()
+
+    ctx["fogNeedsUpdating"] = true
   end
 }
 
@@ -828,7 +840,7 @@ local function drawWindowContent()
       im.Separator()
       im.Text("Screenshot")
       im.SliderInt("Super Sampling", screenShotSuperSamplingPtr, 1, 36)
-      if imButton("Take Screenshot") then
+      if imButton("Take Screenshot", 40) then
         takeScreenshot()
       end
       im.EndTabItem()
@@ -878,7 +890,7 @@ local function imRender()
   pushImStyle()
 
   im.SetNextWindowSizeConstraints(im.ImVec2(500, 800), im.ImVec2(500, 800))
-  if im.Begin("GFX Suite", showUI, im.WindowFlags_AlwaysAutoResize+im.WindowFlags_NoResize) then
+  if im.Begin("GFX Suite v" .. version, showUI, im.WindowFlags_AlwaysAutoResize+im.WindowFlags_NoResize) then
     drawWindowContent()
     im.End()
   end
@@ -937,6 +949,11 @@ local function onUpdate(dt)
     refreshOptionsAll()
     log('I', '', "Setting tables refreshed")
     isTablesRefreshed = true
+  end
+
+  if ctx["fogNeedsUpdating"] then
+    scenetree.theLevelInfo:postApply()
+    ctx["fogNeedsUpdating"] = false
   end
 
   ctx["caPostFx"]:setShaderConst("$screenResolution", screenWidth .. " " .. screenHeight)
