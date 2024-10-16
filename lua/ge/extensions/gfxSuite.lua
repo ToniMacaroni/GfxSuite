@@ -13,8 +13,9 @@ local showUI = im.BoolPtr(false)
 -- post processing settings
 
 local ppOptions = {header = "Post Processing"}
+
 ppOptions["sharpAmount"] = {
-  name = "Sharpness", type = "float", min = 0.0, max = 3.0, value = im.FloatPtr(0.0), -- 0.6
+  name = "Highpass Sharpen", type = "float", min = 0.0, max = 3.0, value = im.FloatPtr(0.0), -- 0.6
   setter = function(value, ctx)
     ctx.highpassFx:setShaderConst("$highPassSharpStrength", value)
   end
@@ -23,6 +24,17 @@ ppOptions["caAmount"] = {
   name = "Chromatic Abberation", type = "float", min = 0.0, max = 1.0, value = im.FloatPtr(0.4),
   setter = function(value, ctx)
     ctx.caPostFx:setShaderConst("$caAmount", value)
+  end
+}
+ppOptions["adaptiveSharpen"] = {
+  name = "Adaptive Sharpen", type = "float", min = 0.0, max = 5.0, value = im.FloatPtr(0.0),
+  setter = function(value, ctx)
+    if value < 0.01 then
+      if ctx.adaptiveSharpenPostFx.isEnabled then ctx.adaptiveSharpenPostFx:disable() end
+    else
+      ctx.adaptiveSharpenPostFx:enable()
+      ctx.adaptiveSharpenPostFx1:setShaderConst("$curveHeight", value)
+    end
   end
 }
 
@@ -132,6 +144,8 @@ miscOptions["shadowSoftness"] = {
   setter = function(value, ctx)
     ctx.sky.shadowSoftness = value
     ctx.sky:postApply()
+
+    ctx["fogNeedsUpdating"] = true
   end
 }
 miscOptions["shadowLogWeight"] = {
@@ -139,6 +153,8 @@ miscOptions["shadowLogWeight"] = {
   setter = function(value, ctx)
     ctx.sky.logWeight = value * 0.0003 + 0.97
     ctx.sky:postApply()
+
+    ctx["fogNeedsUpdating"] = true
   end
 }
 miscOptions["terrainDetail"] = {
@@ -221,7 +237,7 @@ environmentOptions["sunScale"] = {
   end
 }
 environmentOptions["fogAmount"] = {
-  name = "Fog Amount", type = "float", min = 0.0, max = 10.0, value = im.FloatPtr(0.0),
+  name = "Fog Amount", type = "float", min = 0.0, max = 30.0, value = im.FloatPtr(0.0),
   setter = function(value, ctx)
     core_environment.setFogDensity(value * 0.0001)
   end
@@ -412,7 +428,7 @@ local function refreshTable(table)
   end
 end
 
-local function revertTable(table)
+local function revertTable(table, refreshTable)
   for k,v in pairs(table) do
     if k ~= "header" then
       if v.type == "color" then
@@ -420,7 +436,10 @@ local function revertTable(table)
       else
         v.value[0] = v.defaultValue
       end
-      v.setter(v.defaultValue, ctx)
+
+      if refreshTable then
+        v.setter(v.defaultValue, ctx)
+      end
     end
   end
 end
@@ -431,9 +450,9 @@ local function refreshOptionsAll()
   end
 end
 
-local function revertOptionsAll()
+local function revertOptionsAll(refreshTables)
   for k,v in pairs(options) do
-    revertTable(v)
+    revertTable(v, refreshTables)
   end
 end
 
@@ -470,6 +489,8 @@ local function loadProfile(profileName, refreshTables)
     log('I', '', "GfxSuite profile " .. profileName .. " is empty!")
     return
   end
+
+  revertOptionsAll(false)
 
   for k,v in pairs(data) do
     if options[k] then
@@ -702,6 +723,8 @@ local function onClientPostStartMission()
   postEffectCombinePass.enabled = 0.0
 
   scenetree.findObject("FXAA_PostEffect"):disable()
+
+  ctx["fogNeedsUpdating"] = true
 end
 
 local function takeScreenshot()
@@ -843,6 +866,12 @@ local function drawWindowContent()
       if imButton("Take Screenshot", 40) then
         takeScreenshot()
       end
+      if imButton("Explore Folder") then
+        if not FS:fileExists('/screenshots/GFXSuite/') then
+          FS:directoryCreate('/screenshots/GFXSuite/', true)
+        end
+         Engine.Platform.exploreFolder('/screenshots/GFXSuite/')
+      end
       im.EndTabItem()
     end
 
@@ -856,6 +885,7 @@ local function drawWindowContent()
       if im.ListBox1("Profiles", profileIndex, im.ArrayCharPtrByTbl(profiles), #profiles, 6) then
         if profileIndex[0] ~= -1 then
           loadProfile(profiles[profileIndex[0] + 1], true)
+          ctx["fogNeedsUpdating"] = true
         end
       end
 
@@ -943,6 +973,12 @@ local function onUpdate(dt)
     return
   end
 
+  if ctx["adaptiveSharpenPostFx"] == nil then
+    ctx["adaptiveSharpenPostFx"] = scenetree.findObject("AdaptiveSharpenPostFx")
+    ctx["adaptiveSharpenPostFx1"] = scenetree.findObject("AdaptiveSharpenPostFx1")
+    return
+  end
+
   ctx["sky"] = scenetree.findObject("sunsky")
 
   if not isTablesRefreshed then
@@ -956,8 +992,12 @@ local function onUpdate(dt)
     ctx["fogNeedsUpdating"] = false
   end
 
-  ctx["caPostFx"]:setShaderConst("$screenResolution", screenWidth .. " " .. screenHeight)
-  ctx["highpassFx"]:setShaderConst("$screenResolution", screenWidth .. " " .. screenHeight)
+  local screenSize = screenWidth .. " " .. screenHeight
+  local oneOverScreenSize = 1.0/screenWidth .. " " .. 1.0/screenHeight
+  ctx["caPostFx"]:setShaderConst("$screenResolution", screenSize)
+  ctx["highpassFx"]:setShaderConst("$screenResolution", screenSize)
+  ctx["adaptiveSharpenPostFx"]:setShaderConst("$pixelSize", oneOverScreenSize)
+  ctx["adaptiveSharpenPostFx1"]:setShaderConst("$pixelSize", oneOverScreenSize)
 
   imRender()
 end

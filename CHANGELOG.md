@@ -1,2 +1,3 @@
-- Added supersampled screenshot feature to the interface
-- Fixed fog being overwritten when using some environment options
+- Added supersampled screenshot feature to the interface.
+- Added adaptive sharpen.
+- Fixed fog being overwritten when using some environment options.

@@ -2,20 +2,7 @@ if not scenetree.findObject("Custom_FXAA_PostEffect") then
     rerequire("client/postFx/fxaaCustom")
 end
 
-local function createState(stateName)
-    local stateBlock = scenetree.findObject(stateName)
-    if stateBlock then
-        return stateBlock
-    end
-
-    stateBlock = createObject("GFXStateBlockData")
-    stateBlock.zDefined = true;
-    stateBlock.zEnable = false;
-    stateBlock.zWriteEnable = false;
-    stateBlock.samplersDefined = false;
-    stateBlock:setField("samplerStates", 0, "SamplerClampPoint")
-    stateBlock:registerObject(stateName)
-end
+-- ========== Foliage SSS ==========
 
 local foliageSSSShader = scenetree.findObject("FoliageSSSShader")
 if not foliageSSSShader then
@@ -28,6 +15,25 @@ if not foliageSSSShader then
     foliageSSSShader:registerObject("FoliageSSSShader")
 end
 
+local foliageSSSFx = scenetree.findObject("FoliageSSSFx")
+if not foliageSSSFx then
+    foliageSSSFx = createObject("PostEffect")
+    foliageSSSFx.isEnabled = false
+    foliageSSSFx:setField("renderTime", 0, "PFXBeforeBin")
+    foliageSSSFx:setField("renderBin", 0, "RenderBinFoliage")
+    foliageSSSFx:setField("shader", 0, "foliageSSSShader")
+    foliageSSSFx:setField("stateBlock", 0, "PFX_DefaultStateBlock")
+    foliageSSSFx:setField("texture", 0, "$backBuffer")
+    foliageSSSFx:setField("texture", 1, "#prepass[RT0]")
+    foliageSSSFx:setField("texture", 2, "#prepass[Depth]")
+    foliageSSSFx:setField("texture", 3, "#prepass[RT1]")
+    foliageSSSFx:setField("texture", 4, "#lightinfo")
+    foliageSSSFx.renderPriority = 4
+    foliageSSSFx:registerObject("FoliageSSSFx")
+end
+
+-- ========== Chromatic aberration ==========
+
 local caShader = scenetree.findObject("CAShader")
 if not caShader then
     caShader = createObject("ShaderData")
@@ -37,6 +43,21 @@ if not caShader then
     caShader.defines = "CA_PASS"
     caShader:registerObject("CAShader")
 end
+
+local caPostFx = scenetree.findObject("CAPostFx")
+if not caPostFx then
+    caPostFx = createObject("PostEffect")
+    caPostFx.isEnabled = true
+    caPostFx:setField("renderTime", 0, "PFXBeforeBin")
+    caPostFx:setField("renderBin", 0, "RenderBinFoliage")
+    caPostFx:setField("shader", 0, "CAShader")
+    caPostFx:setField("stateBlock", 0, "PFX_DefaultStateBlock")
+    caPostFx:setField("texture", 0, "$backBuffer")
+    caPostFx.renderPriority = 100
+    caPostFx:registerObject("CAPostFx")
+end
+
+-- ========== Highpass ==========
 
 local highpassShader = scenetree.findObject("HighpassShader")
 if not highpassShader then
@@ -48,6 +69,21 @@ if not highpassShader then
     highpassShader:registerObject("HighpassShader")
 end
 
+local highpassPostFx = scenetree.findObject("HighpassPostFx")
+if not highpassPostFx then
+    highpassPostFx = createObject("PostEffect")
+    highpassPostFx.isEnabled = true
+    highpassPostFx:setField("renderTime", 0, "PFXBeforeBin")
+    highpassPostFx:setField("renderBin", 0, "RenderBinFoliage")
+    highpassPostFx:setField("shader", 0, "HighpassShader")
+    highpassPostFx:setField("stateBlock", 0, "PFX_DefaultStateBlock")
+    highpassPostFx:setField("texture", 0, "$backBuffer")
+    highpassPostFx.renderPriority = 100
+    highpassPostFx:registerObject("HighpassPostFx")
+end
+
+-- ========== Contact shadows ========== (NOT USED)
+
 local contactShadowsShader = scenetree.findObject("ContactShadowsShader")
 if not contactShadowsShader then
     contactShadowsShader = createObject("ShaderData")
@@ -55,82 +91,6 @@ if not contactShadowsShader then
     contactShadowsShader.DXPixelShaderFile     = "shaders/common/postFx/ContactShadows.hlsl"
     contactShadowsShader.pixVersion = 5.0
     contactShadowsShader:registerObject("ContactShadowsShader")
-end
-
-local customTonemapShader = scenetree.findObject("CustomTonemapShader")
-if not customTonemapShader then
-    customTonemapShader = createObject("ShaderData")
-    customTonemapShader.DXVertexShaderFile    = "shaders/common/postFx/customTonemap.hlsl"
-    customTonemapShader.DXPixelShaderFile     = "shaders/common/postFx/customTonemap.hlsl"
-    customTonemapShader.pixVersion = 5.0
-    customTonemapShader:registerObject("CustomTonemapShader")
-end
-
-createState("FoliageSSSStateBlock")
-createState("CAPassStateBlock")
-createState("HighpassStateBlock")
-createState("ContactShadowsStateBlock")
-
-local customTonemapStateBlock = scenetree.findObject("CustomTonemapStateBlock")
-if not customTonemapStateBlock then
-    customTonemapStateBlock = createObject("GFXStateBlockData")
-    customTonemapStateBlock.zDefined = true
-    customTonemapStateBlock.zEnable = false
-    customTonemapStateBlock.zWriteEnable = false
-    --customTonemapStateBlock.samplersDefined = true
-    customTonemapStateBlock.blendDefined = true;
-    customTonemapStateBlock.blendEnable = true;
-    customTonemapStateBlock:setField("blendSrc", 0, "GFXBlendSrcAlpha")
-    customTonemapStateBlock:setField("blendDest", 0, "GFXBlendInvSrcAlpha")
-    customTonemapStateBlock:setField("blendOp", 0, "GFXBlendOpAdd")
-    --customTonemapStateBlock:setField("samplerStates", 0, "SamplerClampLinear")
-    customTonemapStateBlock:registerObject("CustomTonemapStateBlock")
-end
-
-local foliageSSSFx = scenetree.findObject("FoliageSSSFx")
-if not foliageSSSFx then
-    foliageSSSFx = createObject("PostEffect")
-    foliageSSSFx.isEnabled = false
-    foliageSSSFx.allowReflectPass = false
-    foliageSSSFx:setField("renderTime", 0, "PFXBeforeBin")
-    foliageSSSFx:setField("renderBin", 0, "RenderBinFoliage")
-    foliageSSSFx:setField("shader", 0, "foliageSSSShader")
-    foliageSSSFx:setField("stateBlock", 0, "FoliageSSSStateBlock")
-    foliageSSSFx:setField("texture", 0, "$backBuffer")
-    foliageSSSFx:setField("texture", 1, "#prepass[RT0]")
-    foliageSSSFx:setField("texture", 2, "#prepass[Depth]")
-    foliageSSSFx:setField("texture", 3, "#prepass[RT1]")
-    foliageSSSFx:setField("texture", 4, "#lightinfo")
-    foliageSSSFx.renderPriority = 4
-    foliageSSSFx:registerObject("FoliageSSSFx")
-end
-
-local caPostFx = scenetree.findObject("CAPostFx")
-if not caPostFx then
-    caPostFx = createObject("PostEffect")
-    caPostFx.isEnabled = true
-    caPostFx.allowReflectPass = false
-    caPostFx:setField("renderTime", 0, "PFXBeforeBin")
-    caPostFx:setField("renderBin", 0, "RenderBinFoliage")
-    caPostFx:setField("shader", 0, "CAShader")
-    caPostFx:setField("stateBlock", 0, "CAPassStateBlock")
-    caPostFx:setField("texture", 0, "$backBuffer")
-    caPostFx.renderPriority = 100
-    caPostFx:registerObject("CAPostFx")
-end
-
-local highpassPostFx = scenetree.findObject("HighpassPostFx")
-if not highpassPostFx then
-    highpassPostFx = createObject("PostEffect")
-    highpassPostFx.isEnabled = true
-    highpassPostFx.allowReflectPass = false
-    highpassPostFx:setField("renderTime", 0, "PFXBeforeBin")
-    highpassPostFx:setField("renderBin", 0, "RenderBinFoliage")
-    highpassPostFx:setField("shader", 0, "HighpassShader")
-    highpassPostFx:setField("stateBlock", 0, "HighpassStateBlock")
-    highpassPostFx:setField("texture", 0, "$backBuffer")
-    highpassPostFx.renderPriority = 100
-    highpassPostFx:registerObject("HighpassPostFx")
 end
 
 local contactShadowsPostFx = scenetree.findObject("ContactShadowsPostFx")
@@ -146,13 +106,62 @@ if not contactShadowsPostFx then
     contactShadowsPostFx:registerObject("ContactShadowsPostFx")
 end
 
+local pfxAdaptiveSharpenShader1 = scenetree.findObject("PFX_AdaptiveSharpenShader1")
+if not pfxAdaptiveSharpenShader1 then
+    pfxAdaptiveSharpenShader1 = createObject("ShaderData")
+    pfxAdaptiveSharpenShader1.DXVertexShaderFile    = "shaders/common/postFx/adaptiveSharpen.hlsl"
+    pfxAdaptiveSharpenShader1.DXPixelShaderFile     = "shaders/common/postFx/adaptiveSharpen.hlsl"
+    pfxAdaptiveSharpenShader1.pixVersion = 5.0
+    pfxAdaptiveSharpenShader1:registerObject("PFX_AdaptiveSharpenShader1")
+end
+
+-- ========== Adaptive sharpening ==========
+
+local pfxAdaptiveSharpenShader0 = scenetree.findObject("PFX_AdaptiveSharpenShader0")
+if not pfxAdaptiveSharpenShader0 then
+  pfxAdaptiveSharpenShader0 = createObject("ShaderData")
+  pfxAdaptiveSharpenShader0:inheritParentFields(pfxAdaptiveSharpenShader1)
+  pfxAdaptiveSharpenShader0.defines = "PASS0"
+  pfxAdaptiveSharpenShader0:registerObject("PFX_AdaptiveSharpenShader0")
+end
+
+local pfxAdaptiveSharpen = scenetree.findObject("AdaptiveSharpenPostFx")
+if not pfxAdaptiveSharpen then
+    pfxAdaptiveSharpen = createObject("PostEffect")
+    pfxAdaptiveSharpen.isEnabled = true
+    pfxAdaptiveSharpen:setField("shader", 0, "PFX_AdaptiveSharpenShader0")
+    pfxAdaptiveSharpen:setField("stateBlock", 0, "PFX_DefaultStateBlock")
+    pfxAdaptiveSharpen:setField("texture", 0, "$backBuffer")
+    pfxAdaptiveSharpen:setField("target", 0, "$outTex")
+    pfxAdaptiveSharpen:registerObject("AdaptiveSharpenPostFx")
+
+    local pfxAdaptiveSharpen1 = createObject("PostEffect")
+    pfxAdaptiveSharpen1:setField("shader", 0, "PFX_AdaptiveSharpenShader1")
+    pfxAdaptiveSharpen1:setField("stateBlock", 0, "PFX_DefaultStateBlock")
+    pfxAdaptiveSharpen1:setField("texture", 0, "$backBuffer")
+    pfxAdaptiveSharpen1:setField("texture", 1, "$inTex")
+    pfxAdaptiveSharpen1:setField("target", 0, "$backBuffer")
+    pfxAdaptiveSharpen1:registerObject("AdaptiveSharpenPostFx1")
+    pfxAdaptiveSharpen:add(pfxAdaptiveSharpen1)
+end
+
+-- ========== Custom Tonemap ==========
+
+local customTonemapShader = scenetree.findObject("CustomTonemapShader")
+if not customTonemapShader then
+    customTonemapShader = createObject("ShaderData")
+    customTonemapShader.DXVertexShaderFile    = "shaders/common/postFx/customTonemap.hlsl"
+    customTonemapShader.DXPixelShaderFile     = "shaders/common/postFx/customTonemap.hlsl"
+    customTonemapShader.pixVersion = 5.0
+    customTonemapShader:registerObject("CustomTonemapShader")
+end
+
 local customTonemapPostFx = scenetree.findObject("CustomTonemapPostFx")
 if not customTonemapPostFx then
     customTonemapPostFx = createObject("PostEffect")
     customTonemapPostFx.isEnabled = true
-    customTonemapPostFx.allowReflectPass = true
     customTonemapPostFx:setField("shader", 0, "CustomTonemapShader")
-    customTonemapPostFx:setField("stateBlock", 0, "CustomTonemapStateBlock")
+    customTonemapPostFx:setField("stateBlock", 0, "PFX_DefaultStateBlock")
     customTonemapPostFx:setField("texture", 0, "$backBuffer")
     customTonemapPostFx:setField("texture", 1, "art/luts/correction.png")
     customTonemapPostFx.renderPriority = 9999
