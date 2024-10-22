@@ -164,13 +164,13 @@ miscOptions["terrainDetail"] = {
   end
 }
 miscOptions["lodDetail"] = { -- 1.5 default
-  name = "LOD Detail", type = "float", min = 0.0, max = 10.0, value = im.FloatPtr(6.8),
+  name = "LOD Detail", type = "float", min = 0.0, max = 50.0, value = im.FloatPtr(6.8),
   setter = function(value, ctx)
     TorqueScriptLua.setVar("$pref::TS::detailAdjust", value)
   end
 }
 miscOptions["foliageDensity"] = {
-  name = "Foliage Density", type = "float", min = 0.0, max = 3.0, value = im.FloatPtr(1.881),
+  name = "Foliage Density", type = "float", min = 0.0, max = 10.0, value = im.FloatPtr(1.881),
   setter = function(value, ctx)
     TorqueScriptLua.setVar("$pref::GroundCover::densityScale", value)
   end
@@ -394,7 +394,6 @@ setImArray(environmentOptions["sunScale"].value, 0.776, 0.582, 0.448, 1.0)
 setImArray(tonemappingExtrasOptions["tint"].value, 1.0, 1.0, 1.0, 1.0)
 setImArray(environmentOptions["fogColor"].value, 0.402, 0.374, 0.322, 1.0)
 
--- set default values
 for k,v in pairs(options) do
   for k2,v2 in pairs(v) do
     if k2 ~= "header" then
@@ -418,6 +417,7 @@ local screenWidth = 2560
 local screenHeight = 1440
 
 local screenShotSuperSamplingPtr = im.IntPtr(1)
+local globalEnablePtr = im.BoolPtr(true)
 
 local function refreshTable(table)
   for k,v in pairs(table) do
@@ -520,6 +520,34 @@ local function loadProfile(profileName, refreshTables)
   end
 
   log('I', '', "GfxSuite profile " .. profileName .. " loaded!")
+end
+
+local function toggleTonemapping(useGameTonemapping)
+  scenetree.findObject("PostEffectCombinePassObject").enabled = useGameTonemapping and 1.0 or 0.0
+  local tonemappingFx = scenetree.findObject("CustomTonemapPostFx")
+  if tonemappingFx then
+    if useGameTonemapping then tonemappingFx:disable() else tonemappingFx:enable() end
+  end
+end
+
+local function toggleAllEffects(shouldEnable)
+  if shouldEnable then
+    loadProfile(activeProfile, true)
+  else
+    revertOptionsAll(true)
+  end
+
+  toggleTonemapping(not shouldEnable)
+
+  -- specific values for differences between the mods default (to make things look "better") and game's default
+  skyboxOptions["enable"].setter(shouldEnable and skyboxOptions["enable"].value[0] or false, ctx)
+  environmentOptions["light"].setter(shouldEnable and environmentOptions["light"].value[0] or 1.0, ctx)
+  ctx["sky"].texSize = shouldEnable and 4096 or 1024
+  ctx["sky"].exposure = shouldEnable and 2.0 or 1.0
+  local time = core_environment.getTimeOfDay()
+  time.time = shouldEnable and environmentOptions["time"].value[0]/100.0 or 0.92586
+  time.azimuthOverride = shouldEnable and environmentOptions["azimuth"].value[0]/180.0*math.pi or 0.0
+  core_environment.setTimeOfDay(time)
 end
 
 local function loadSettings()
@@ -719,8 +747,7 @@ local function onClientPostStartMission()
     end
   end
 
-  local postEffectCombinePass = scenetree.findObject("PostEffectCombinePassObject")
-  postEffectCombinePass.enabled = 0.0
+  toggleTonemapping(false)
 
   scenetree.findObject("FXAA_PostEffect"):disable()
 
@@ -902,6 +929,11 @@ local function drawWindowContent()
 
       if imButton("Reset all values", 40) then
         revertOptionsAll()
+      end
+
+      if im.Checkbox("Enable all effects", globalEnablePtr) then
+        toggleAllEffects(globalEnablePtr[0])
+        log('I', '', "All effects are now " .. (globalEnablePtr[0] and "enabled" or "disabled"))
       end
 
       im.EndTabItem()
