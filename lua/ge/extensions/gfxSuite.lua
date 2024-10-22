@@ -3,7 +3,7 @@ local events = require('timeEvents').create()
 local procPrimitives = require('util/trackBuilder/proceduralPrimitives')
 local ffi = require('ffi')
 
-local version = "1.1.0"
+local version = "1.2.0"
 local configVersion = "0.0.0"
 local pendingQuit = false
 
