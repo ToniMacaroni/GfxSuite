@@ -621,7 +621,10 @@ local function onExtensionLoaded()
 
   if configVersion ~= version then
     saveSettings()
-    messageBox("GfxSuite", "New version of GFX Suite installed. It is recommended to clear the '%localappdata%/BeamNG.drive/latest/temp/shaders' folder in order to recompile the shaders and start the game again. If it's your first time installing this mod you can ignore this message.", 0, 0)
+    local result = messageBox("GfxSuite", "New version of GFX Suite installed. It is recommended to clear the '%localappdata%/BeamNG.drive/latest/temp/shaders' folder in order to recompile the shaders and start the game again. If it's your first time installing this mod you can ignore this message.\n\nDo you want to open the folder?", 4, 2)
+    if result == 1 then
+      Engine.Platform.exploreFolder('/temp/shaders')
+    end
   end
 end
 
