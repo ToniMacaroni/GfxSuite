@@ -1,4 +1,5 @@
 - Added supersampled screenshot feature to the interface.
 - Added adaptive sharpen.
 - Added global toggle for the mod.
+- Ability to explore the temp folder on new mod version.
 - Fixed fog being overwritten when using some environment options.
