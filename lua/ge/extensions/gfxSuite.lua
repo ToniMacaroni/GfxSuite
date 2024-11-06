@@ -2,6 +2,7 @@ local M = {}
 local events = require('timeEvents').create()
 local procPrimitives = require('util/trackBuilder/proceduralPrimitives')
 local ffi = require('ffi')
+local skyboxCreator = require('skyboxCreator')
 
 local version = "1.2.0"
 local configVersion = "0.0.0"
@@ -907,6 +908,9 @@ local function drawWindowContent()
 
     if im.BeginTabItem("Skybox") then
       renderSkyboxOptions()
+      if imButton("Open Creator") then
+        skyboxCreator.openUI(true)
+      end
       im.EndTabItem()
     end
 
@@ -1035,6 +1039,8 @@ local function onUpdate(dt)
   ctx["adaptiveSharpenPostFx1"]:setShaderConst("$pixelSize", oneOverScreenSize)
 
   imRender()
+
+  skyboxCreator:onUpdate()
 end
 
 local function onCameraToggled(parms)

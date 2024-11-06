@@ -135,16 +135,15 @@ filename = path.basename(sys.argv[1]).split(".")[0]
 map_x_32, map_y_32 = generate_mapping_data(ldr_image_rgb.shape[1])
 cubemap = cv2.remap(ldr_image_rgb, map_x_32, map_y_32, cv2.INTER_LINEAR)
 
-imgOut = Image.fromarray(cubemap)
-
-cubemap_texture = cubemap
-
-height, width, _ = cubemap_texture.shape
+height, width, _ = cubemap.shape
 face_size = width // 4
 
-cubemap_faces = extract_cubemap_faces_from_cross(cubemap_texture, face_size)
+cubemap_faces = extract_cubemap_faces_from_cross(cubemap, face_size)
 
 Path(f'{dir}\\{filename}').mkdir(parents=True, exist_ok=True)
+
+# imgOut = Image.fromarray(cubemap)
+# imgOut.save(f'{dir}\\{filename}_cubemap.png')
 
 for face_name, face_image in cubemap_faces.items():
     Image.fromarray(face_image).save(f'{dir}\\{filename}\\{face_name}.png')
