@@ -13,8 +13,6 @@ float3 sharpBlur(float2 texcoord)
 
     float highPassSharpOffset = 2.0;
 
-    float2 pixelSize = 1.0 / screenResolution;
-
     float3 color = tex2D(backBuffer, texcoord).rgb;
     float3 orig = color;
     float luma = dot(color.rgb, float3(0.32786885, 0.655737705, 0.0163934436));
@@ -28,8 +26,8 @@ float3 sharpBlur(float2 texcoord)
 
     [loop]
     for (int i = 1; i < 5; ++i) {
-        color += tex2D(backBuffer, texcoord + float2(sampleOffsetsX[i] * pixelSize.x, sampleOffsetsY[i] * pixelSize.y) * highPassSharpOffset).rgb * sampleWeights[i];
-        color += tex2D(backBuffer, texcoord - float2(sampleOffsetsX[i] * pixelSize.x, sampleOffsetsY[i] * pixelSize.y) * highPassSharpOffset).rgb * sampleWeights[i];
+        color += tex2D(backBuffer, texcoord + float2(sampleOffsetsX[i] * oneOverTargetSize.x, sampleOffsetsY[i] * oneOverTargetSize.y) * highPassSharpOffset).rgb * sampleWeights[i];
+        color += tex2D(backBuffer, texcoord - float2(sampleOffsetsX[i] * oneOverTargetSize.x, sampleOffsetsY[i] * oneOverTargetSize.y) * highPassSharpOffset).rgb * sampleWeights[i];
     }
 
     float sharp = dot(color.rgb, float3(0.32786885, 0.655737705, 0.0163934436));
@@ -52,12 +50,10 @@ float3 sharpBlur(float2 texcoord)
 
 float3 caPass(float2 uv, float2 shift, float strength) : SV_Target
 {
-    float2 pixelSize = 1.0 / screenResolution;
-
     float3 color, ogColor = tex2D(backBuffer, uv).rgb;
-    color.r = tex2D(backBuffer, uv + (pixelSize * shift)).r;
+    color.r = tex2D(backBuffer, uv + (oneOverTargetSize * shift)).r;
     color.g = ogColor.g;
-    color.b = tex2D(backBuffer, uv - (pixelSize * shift)).b;
+    color.b = tex2D(backBuffer, uv - (oneOverTargetSize * shift)).b;
 
     return lerp(ogColor, color, strength);
 }

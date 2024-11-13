@@ -52,7 +52,7 @@
 #define max4(a,b,c,d)  ( max(max(a, b), max(c, d)) )
 
 // Get destination pixel values
-#define texc(x,y)      ( pixelSize * float2(x, y) + tex )
+#define texc(x, y) ( oneOverTargetSize * float2(x, y) + tex )
 #define getB(x,y)      ( saturate(tex2D(backBuffer, texc(x, y)).rgb) )
 #define getT(x,y)      ( tex2D(inTex, texc(x, y)).xy )
 
@@ -127,7 +127,7 @@ float2 AdaptiveSharpenP0(float2 tex) : SV_Target
 	return float2(edge*c_comp, luma);
 }
 
-float3 AdaptiveSharpenP1(float2 tex) : SV_Target
+float4 AdaptiveSharpenP1(float2 tex) : SV_Target
 {
 	float3 origsat = getB(0, 0);
 
@@ -238,8 +238,8 @@ float3 AdaptiveSharpenP1(float2 tex) : SV_Target
 		neg_laplace = pow(abs(neg_laplace/weightsum), (1.0/2.4)) - 0.06;
 	#endif
 
-	// Compute sharpening magnitude function
-	float sharpen_val = curveHeight/(curveHeight*curveslope*pow(abs(d[0].x), 3.5) + 0.625);
+    // Compute sharpening magnitude function
+    float sharpen_val = curveHeight / (curveHeight*curveslope*pow(abs(d[0].x), 3.5) + 0.625);
 
 	// Calculate sharpening diff and scale
 	float sharpdiff = (d[0].y - neg_laplace)*(lowthrsum*sharpen_val + 0.01);
@@ -336,9 +336,10 @@ float3 AdaptiveSharpenP1(float2 tex) : SV_Target
 	// Compensate for saturation loss/gain while making pixels brighter/darker
 	float sharpdiff_lim = saturate(d[0].y + sharpdiff) - d[0].y;
 	float satmul = (d[0].y + max(sharpdiff_lim*0.9, sharpdiff_lim)*1.03 + 0.03)/(d[0].y + 0.03);
-	float3 res = d[0].y + (sharpdiff_lim*3 + sharpdiff)/4 + (origsat - d[0].y)*satmul;
+    float3 res = saturate(d[0].y + (sharpdiff_lim * 3 + sharpdiff) / 4 + (origsat - d[0].y) * satmul);
 
-	return saturate(res);
+    float4 ocol = tex2D(backBuffer, tex);
+    return float4(lerp(res, ocol, useOpacityMask * (ocol.a > 0.01 && ocol.a < 0.655)), ocol.a);
 }
 
 PFXVertToPix mainV(PFXVert IN)
@@ -351,6 +352,6 @@ float4 mainP(PFXVertToPix IN) : SV_TARGET0
 	#ifdef PASS0
 		return float4(AdaptiveSharpenP0(IN.uv0), 0, 1);
 	#else
-		return float4(AdaptiveSharpenP1(IN.uv0), 1);
+		return float4(AdaptiveSharpenP1(IN.uv0));
 	#endif
 }

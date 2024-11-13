@@ -10,9 +10,10 @@ uniform_sampler2D(inTex, 1);
 
 cbuffer perDraw
 {
-    uniform float2 pixelSize;
+    uniform float2 oneOverTargetSize;
 
     uniform float curveHeight;
+    uniform float useOpacityMask;
 
     PURE_POSTFX_UNIFORMS
     BNG_LIGHTING_UNIFORMS

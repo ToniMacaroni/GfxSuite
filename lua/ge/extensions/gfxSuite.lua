@@ -2,9 +2,10 @@ local M = {}
 local events = require('timeEvents').create()
 local procPrimitives = require('util/trackBuilder/proceduralPrimitives')
 local ffi = require('ffi')
-local skyboxCreator = require('skyboxCreator')
+local imStyle = require('gfxSuite/imStyle')
+local skyboxCreator = require('gfxSuite/skyboxCreator')
 
-local version = "1.2.0"
+local version = "1.3.0"
 local configVersion = "0.0.0"
 local pendingQuit = false
 
@@ -36,6 +37,12 @@ ppOptions["adaptiveSharpen"] = {
       ctx.adaptiveSharpenPostFx:enable()
       ctx.adaptiveSharpenPostFx1:setShaderConst("$curveHeight", value)
     end
+  end
+}
+ppOptions["sharpenOpacityMask"] = {
+  name = "Opacity mask for sharpen", type = "bool", value = im.BoolPtr(false),
+  setter = function(value, ctx)
+    ctx.adaptiveSharpenPostFx1:setShaderConst("$useOpacityMask", value and 1.0 or 0.0)
   end
 }
 
@@ -76,6 +83,49 @@ tonemappingOptions["pedestal"] = {
   name = "Pedestal", type = "float", min = 0.0, max = 0.1, value = im.FloatPtr(0.0),
   setter = function(value, ctx)
     ctx.tonemappingFx:setShaderConst("$pedestal", value)
+  end
+}
+
+tonemappingOptions["gain"] = {
+  name = "Gain", type = "float", min = 0.0, max = 10.0, value = im.FloatPtr(1.0),
+  setter = function(value, ctx)
+    ctx.tonemappingFx:setShaderConst("$gain", value)
+  end
+}
+tonemappingOptions["agxMix"] = {
+  name = "AGX Mix", type = "float", min = 0.0, max = 1.0, value = im.FloatPtr(0.85),
+  setter = function(value, ctx)
+    ctx.tonemappingFx:setShaderConst("$agx_mix", value)
+  end
+}
+tonemappingOptions["agxMixExp"] = {
+  name = "AGX Mix Exp", type = "float", min = 0.0, max = 1.0, value = im.FloatPtr(0.40),
+  setter = function(value, ctx)
+    ctx.tonemappingFx:setShaderConst("$agx_mix_exp", value)
+  end
+}
+tonemappingOptions["agxSlope"] = {
+  name = "AGX Slope", type = "float", min = 0.0, max = 2.0, value = im.FloatPtr(1.18),
+  setter = function(value, ctx)
+    ctx.tonemappingFx:setShaderConst("$agx_slope", value)
+  end
+}
+tonemappingOptions["agxPower"] = {
+  name = "AGX Power", type = "float", min = 0.0, max = 10.0, value = im.FloatPtr(2.40),
+  setter = function(value, ctx)
+    ctx.tonemappingFx:setShaderConst("$agx_power", value)
+  end
+}
+tonemappingOptions["agxSat"] = {
+  name = "AGX Sat", type = "float", min = 0.0, max = 2.0, value = im.FloatPtr(0.99),
+  setter = function(value, ctx)
+    ctx.tonemappingFx:setShaderConst("$agx_sat", value)
+  end
+}
+tonemappingOptions["agxSatDependency"] = {
+  name = "AGX Sat Dependency", type = "float", min = 0.0, max = 1.0, value = im.FloatPtr(1.0),
+  setter = function(value, ctx)
+    ctx.tonemappingFx:setShaderConst("$agx_sat_dependency", value)
   end
 }
 
@@ -265,6 +315,63 @@ environmentOptions["rayleighScattering"] = {
     ctx["fogNeedsUpdating"] = true
   end
 }
+environmentOptions["cloudCover1"] = {
+  name = "Cloud Cover 1", type = "float", min = 0.0, max = 1.0, value = im.FloatPtr(0.1),
+  setter = function (value, ctx)
+    if ctx.clouds[1] ~= nil then
+      ctx.clouds[1].coverage = value
+    end
+  end
+}
+environmentOptions["cloudCover2"] = {
+  name = "Cloud Cover 2", type = "float", min = 0.0, max = 1.0, value = im.FloatPtr(0.2),
+  setter = function (value, ctx)
+    if ctx.clouds[2] ~= nil then
+      ctx.clouds[2].coverage = value
+    end
+  end
+}
+environmentOptions["skyColorAmt"] = {
+  name = "Sky Color Amount", type = "float", min = 0.0, max = 10.0, value = im.FloatPtr(1.75),
+  setter = function (value, ctx)
+    if not ctx.options.skyboxOptions.enable.value[0] then
+      ctx.sky.colorizeAmount = value
+      ctx.sky:postApply()
+    end
+  end
+}
+environmentOptions["skyColor"] = {
+  name = "Sky Color", type = "color", value = im.ArrayFloat(4),
+  setter = function (value, ctx)
+    if not ctx.options.skyboxOptions.enable.value[0] then
+      ctx.sky.colorize = Point4F(value[0], value[1], value[2], ctx.sky.colorize.w)
+    end
+  end
+}
+environmentOptions["oceanFullReflection"] = {
+  name = "Full Ocean Reflection", type = "bool", value = im.BoolPtr(false),
+  setter = function (value, ctx)
+    if ctx["ocean"] then
+      ctx["ocean"].fullReflect = value
+    end
+  end
+}
+environmentOptions["oceanReflectivity"] = {
+  name = "Ocean Reflectivity", type = "float", min = 0.0, max = 1.0, value = im.FloatPtr(0.3),
+  setter = function (value, ctx)
+    if ctx["ocean"] then
+      ctx["ocean"].reflectivity = value
+    end
+  end
+}
+environmentOptions["oceanColor"] = {
+  name = "Ocean Color", type = "color", value = im.ArrayFloat(4),
+  setter = function (value, ctx)
+    if ctx["ocean"] then
+      ctx["ocean"].baseColor = ColorI(value[0]*255, value[1]*255, value[2]*255, value[3]*255)
+    end
+  end
+}
 
 -- lightray stuff
 
@@ -322,6 +429,14 @@ skyboxOptions["enable"] = {
       ctx.skyboxManager:createSky()
     else
       ctx.skyboxManager:removeSky()
+    end
+  end
+}
+skyboxOptions["skyColor"] = {
+  name = "Sky Color", type = "color", value = im.ArrayFloat(4),
+  setter = function (value, ctx)
+    if ctx.options.skyboxOptions.enable.value[0] then
+      ctx.sky.colorize = Point4F(value[0], value[1], value[2], ctx.sky.colorize.w)
     end
   end
 }
@@ -394,6 +509,9 @@ miscOptions["shadowSoftness"].value[0] = 2.5
 setImArray(environmentOptions["sunScale"].value, 0.776, 0.582, 0.448, 1.0)
 setImArray(tonemappingExtrasOptions["tint"].value, 1.0, 1.0, 1.0, 1.0)
 setImArray(environmentOptions["fogColor"].value, 0.402, 0.374, 0.322, 1.0)
+setImArray(environmentOptions["skyColor"].value, 0.216, 0.349, 0.604, 1.0)
+setImArray(environmentOptions["oceanColor"].value, 0.992, 0.996, 0.996, 1.0)
+setImArray(skyboxOptions["skyColor"].value, 0.5, 0.5, 0.5, 1.0)
 
 for k,v in pairs(options) do
   for k2,v2 in pairs(v) do
@@ -408,14 +526,11 @@ local ctx = {}
 local skyboxManager = { activeSky = {name = "partially_cloudy", dir = "art/custom_skies"} }
 local skyDirs = {}
 local profiles = {}
-local activeProfile = "default"
+local activeProfile = "Photorealism2"
 local newProfileName = im.ArrayChar(64)
 local profileIndex = im.IntPtr(-1)
 
 local isTablesRefreshed = false
-
-local screenWidth = 2560
-local screenHeight = 1440
 
 local screenShotSuperSamplingPtr = im.IntPtr(1)
 local globalEnablePtr = im.BoolPtr(true)
@@ -523,6 +638,17 @@ local function loadProfile(profileName, refreshTables)
   log('I', '', "GfxSuite profile " .. profileName .. " loaded!")
 end
 
+local function loadProfileAndUpdateUI(profileName, refreshTables)
+  loadProfile(profileName, refreshTables)
+  ffi.copy(newProfileName, profileName)
+  for i, profile in ipairs(profiles) do
+    if profile == profileName then
+      profileIndex[0] = i
+      break
+    end
+  end
+end
+
 local function toggleTonemapping(useGameTonemapping)
   scenetree.findObject("PostEffectCombinePassObject").enabled = useGameTonemapping and 1.0 or 0.0
   local tonemappingFx = scenetree.findObject("CustomTonemapPostFx")
@@ -554,25 +680,20 @@ end
 local function loadSettings()
   if not FS:fileExists("settings/gfxSuite.json") then
     log('I', '', "GfxSuite settings file not found!")
+    loadProfileAndUpdateUI(activeProfile, false)
     return
   end
 
   local data = jsonReadFile("settings/gfxSuite.json")
   if not data then
     log('I', '', "GfxSuite settings file is empty!")
+    loadProfileAndUpdateUI(activeProfile, false)
     return
   end
 
   if data["activeProfile"] then
     activeProfile = data["activeProfile"]
-    loadProfile(activeProfile, false)
-    ffi.copy(newProfileName, activeProfile)
-    for i, profile in ipairs(profiles) do
-      if profile == activeProfile then
-        profileIndex[0] = i
-        break
-      end
-    end
+    loadProfileAndUpdateUI(activeProfile, false)
   end
 
   if data["version"] then
@@ -616,6 +737,25 @@ local function saveSettings()
   log('I', '', "GfxSuite settings saved!")
 end
 
+local function placeObject(name, mesh, pos, rot)
+  pos = vec3(pos)
+  rot = quat(rot):toTorqueQuat()
+
+  local proc = createObject('ProceduralMesh')
+  if proc == nil then return nil end
+  proc:registerObject(name)
+  proc.canSave = false
+  scenetree.MissionGroup:add(proc.obj)
+  proc:createMesh({{mesh}})
+  proc:setPosition(pos)
+  proc:setField('rotation', 0, rot.x .. ' ' .. rot.y .. ' ' .. rot.z .. ' ' .. rot.w)
+  proc.scale = vec3(1, 1, 1)
+
+  be:reloadCollision()
+
+  return proc
+end
+
 local function onExtensionLoaded()
   listProfiles()
   loadSettings()
@@ -643,13 +783,13 @@ skyboxManager.createSky = function()
 
   local fullSkyPath = skyboxManager.activeSky.dir .. "/" .. skyboxManager.activeSky.name
 
-  local skybox = scenetree.findObject("MySky")
-  if not skybox then
-    skybox = worldEditorCppApi.createObject("SkyBox")
-    skybox:setName("MySky")
-    scenetree.MissionGroup:add(skybox.obj)
-    skybox:registerObject("MySky")
-  end
+  -- local skybox = scenetree.findObject("MySky")
+  -- if not skybox then
+  --   skybox = worldEditorCppApi.createObject("SkyBox")
+  --   skybox:setName("MySky")
+  --   scenetree.MissionGroup:add(skybox.obj)
+  --   skybox:registerObject("MySky")
+  -- end
 
   local cubemap = scenetree.findObject("MyCubemap")
   if cubemap then
@@ -673,22 +813,26 @@ skyboxManager.createSky = function()
 
   skyMat:setField("cubemap", 0, "MyCubemap")
 
-  skybox:setField("material", 0, "MySkyMat")
-  skybox:postApply()
+  -- skybox:setField("material", 0, "MySkyMat")
+  -- skybox:postApply()
+
+  skyboxManager.setSunskyOptions(true)
 
   log('I', '', "Skybox created/updated")
 end
 
 skyboxManager.removeSky = function()
-  local skybox = scenetree.findObject("MySky")
-  if skybox then
-    skybox:delete()
-  end
+  -- local skybox = scenetree.findObject("MySky")
+  -- if skybox then
+  --   skybox:delete()
+  -- end
+
+  skyboxManager.setSunskyOptions(false)
 
   local cubemap = scenetree.findObject("MyCubemap")
-  if cubemap then
-    cubemap:delete()
-  end
+  -- if cubemap then
+  --   cubemap:delete()
+  -- end
 
   local skyMat = scenetree.findObject("MySkyMat")
   if skyMat then
@@ -698,29 +842,47 @@ skyboxManager.removeSky = function()
   log('I', '', "Skybox removed")
 end
 
+skyboxManager.setSunskyOptions = function(useCustomSkybox)
+  ctx.sky:setField("nightCubemap", 0, useCustomSkybox and "MyCubemap" or "NightCubemap")
+  local skyColor = useCustomSkybox and skyboxOptions["skyColor"].value or environmentOptions["skyColor"].value;
+  ctx.sky.colorizeAmount = useCustomSkybox and 1.0 or environmentOptions["skyColorAmt"].value[0]
+  ctx.sky.colorize = Point4F(skyColor[0], skyColor[1], skyColor[2], useCustomSkybox and 0.0 or 1.0)
+  ctx.sky:postApply()
+end
+
+local function renderTableEntry(tableEntry)
+  if tableEntry.type == "int" then
+    if im.SliderInt(tableEntry.name, tableEntry.value, tableEntry.min, tableEntry.max) then
+      tableEntry.setter(tableEntry.value[0], ctx)
+    end
+  elseif tableEntry.type == "float" then
+    if im.SliderFloat(tableEntry.name, tableEntry.value, tableEntry.min, tableEntry.max) then
+      tableEntry.setter(tableEntry.value[0], ctx)
+    end
+  elseif tableEntry.type == "bool" then
+    if im.Checkbox(tableEntry.name, tableEntry.value) then
+      tableEntry.setter(tableEntry.value[0], ctx)
+    end
+  elseif tableEntry.type == "color" then
+    if im.ColorEdit4(tableEntry.name, tableEntry.value) then
+      tableEntry.setter(tableEntry.value, ctx)
+    end
+  end
+end
+
 local function renderTable(table, inTreeNode)
   if not inTreeNode or im.TreeNodeEx1(table.header, im.TreeNodeFlags_FramePadding + im.TreeNodeFlags_DefaultOpen) then
     for k,v in pairs(table) do
-      if v.type == "int" then
-        if im.SliderInt(v.name, v.value, v.min, v.max) then
-          v.setter(v.value[0], ctx)
-        end
-      elseif v.type == "float" then
-        if im.SliderFloat(v.name, v.value, v.min, v.max) then
-          v.setter(v.value[0], ctx)
-        end
-      elseif v.type == "bool" then
-        if im.Checkbox(v.name, v.value) then
-          v.setter(v.value[0], ctx)
-        end
-      elseif v.type == "color" then
-        if im.ColorEdit4(v.name, v.value) then
-          v.setter(v.value, ctx)
-        end
+      if not v.hidden then
+        renderTableEntry(v)
       end
     end
     if inTreeNode then im.TreePop() end
   end
+end
+
+local function afterMissionRefresh()
+  
 end
 
 local function onClientPostStartMission()
@@ -739,6 +901,7 @@ local function onClientPostStartMission()
   listSkies()
 
   ctx.skyboxManager = skyboxManager
+  ctx.options = options
 
   local meshNames = scenetree.findClassObjects('ScatterSky')
   for k,v in pairs(meshNames) do
@@ -756,6 +919,8 @@ local function onClientPostStartMission()
   scenetree.findObject("FXAA_PostEffect"):disable()
 
   ctx["fogNeedsUpdating"] = true
+
+  -- events:addEvent( 3, afterMissionRefresh)
 end
 
 local function takeScreenshot()
@@ -778,64 +943,6 @@ local function takeScreenshot()
   log('I', '', "Screenshot taken")
 end
 
-local function pushImStyle()
-  im.PushStyleVar2(im.StyleVar_WindowPadding, im.ImVec2(15, 15))
-  im.PushStyleVar1(im.StyleVar_WindowRounding, 5.0)
-  im.PushStyleVar2(im.StyleVar_FramePadding, im.ImVec2(5, 5))
-  im.PushStyleVar1(im.StyleVar_FrameRounding, 4.0)
-  im.PushStyleVar2(im.StyleVar_ItemSpacing, im.ImVec2(12, 8))
-  im.PushStyleVar2(im.StyleVar_ItemInnerSpacing, im.ImVec2(8, 6))
-  im.PushStyleVar1(im.StyleVar_IndentSpacing, 25.0)
-  im.PushStyleVar1(im.StyleVar_ScrollbarSize, 15.0)
-  im.PushStyleVar1(im.StyleVar_ScrollbarRounding, 9.0)
-  im.PushStyleVar1(im.StyleVar_GrabMinSize, 5.0)
-  im.PushStyleVar1(im.StyleVar_GrabRounding, 3.0)
-
-  im.PushStyleColor2(im.Col_Text, im.ImVec4(0.86, 0.93, 0.89, 0.78))
-  im.PushStyleColor2(im.Col_TextDisabled, im.ImVec4(0.86, 0.93, 0.89, 0.28))
-  im.PushStyleColor2(im.Col_WindowBg, im.ImVec4(0.13, 0.14, 0.17, 1.00))
-  im.PushStyleColor2(im.Col_Border, im.ImVec4(0.31, 0.31, 1.00, 0.00))
-  im.PushStyleColor2(im.Col_BorderShadow, im.ImVec4(0.00, 0.00, 0.00, 0.00))
-  im.PushStyleColor2(im.Col_FrameBg, im.ImVec4(0.20, 0.22, 0.27, 1.00))
-  im.PushStyleColor2(im.Col_FrameBgHovered, im.ImVec4(0.92, 0.18, 0.29, 0.78))
-  im.PushStyleColor2(im.Col_FrameBgActive, im.ImVec4(0.92, 0.18, 0.29, 1.00))
-  im.PushStyleColor2(im.Col_TitleBg, im.ImVec4(0.20, 0.22, 0.27, 1.00))
-  im.PushStyleColor2(im.Col_TitleBgCollapsed, im.ImVec4(0.20, 0.22, 0.27, 0.75))
-  im.PushStyleColor2(im.Col_TitleBgActive, im.ImVec4(0.20, 0.22, 0.27, 1.00))
-  im.PushStyleColor2(im.Col_MenuBarBg, im.ImVec4(0.20, 0.22, 0.27, 0.47))
-  im.PushStyleColor2(im.Col_ScrollbarBg, im.ImVec4(0.13, 0.14, 0.17, 1.00))
-  im.PushStyleColor2(im.Col_ScrollbarGrab, im.ImVec4(0.20, 0.22, 0.27, 1.00))
-  im.PushStyleColor2(im.Col_ScrollbarGrabHovered, im.ImVec4(0.92, 0.18, 0.29, 0.78))
-  im.PushStyleColor2(im.Col_ScrollbarGrabActive, im.ImVec4(0.92, 0.18, 0.29, 1.00))
-  im.PushStyleColor2(im.Col_CheckMark, im.ImVec4(0.71, 0.22, 0.27, 1.00))
-  im.PushStyleColor2(im.Col_SliderGrab, im.ImVec4(0.47, 0.77, 0.83, 0.14))
-  im.PushStyleColor2(im.Col_SliderGrabActive, im.ImVec4(0.92, 0.18, 0.29, 1.00))
-  im.PushStyleColor2(im.Col_Button, im.ImVec4(0.47, 0.77, 0.83, 0.14))
-  im.PushStyleColor2(im.Col_ButtonHovered, im.ImVec4(0.92, 0.18, 0.29, 0.86))
-  im.PushStyleColor2(im.Col_ButtonActive, im.ImVec4(0.92, 0.18, 0.29, 1.00))
-  im.PushStyleColor2(im.Col_Header, im.ImVec4(0.92, 0.18, 0.29, 0.76))
-  im.PushStyleColor2(im.Col_HeaderHovered, im.ImVec4(0.92, 0.18, 0.29, 0.86))
-  im.PushStyleColor2(im.Col_HeaderActive, im.ImVec4(0.92, 0.18, 0.29, 1.00))
-  im.PushStyleColor2(im.Col_Separator, im.ImVec4(0.34, 0.36, 0.39, 1.00))
-  im.PushStyleColor2(im.Col_SeparatorHovered, im.ImVec4(0.92, 0.18, 0.29, 0.78))
-  im.PushStyleColor2(im.Col_SeparatorActive, im.ImVec4(0.92, 0.18, 0.29, 1.00))
-  im.PushStyleColor2(im.Col_ResizeGrip, im.ImVec4(0.47, 0.77, 0.83, 0.04))
-  im.PushStyleColor2(im.Col_ResizeGripHovered, im.ImVec4(0.92, 0.18, 0.29, 0.78))
-  im.PushStyleColor2(im.Col_ResizeGripActive, im.ImVec4(0.92, 0.18, 0.29, 1.00))
-  im.PushStyleColor2(im.Col_PlotLines, im.ImVec4(0.86, 0.93, 0.89, 0.63))
-  im.PushStyleColor2(im.Col_PlotLinesHovered, im.ImVec4(0.92, 0.18, 0.29, 1.00))
-  im.PushStyleColor2(im.Col_PlotHistogram, im.ImVec4(0.86, 0.93, 0.89, 0.63))
-  im.PushStyleColor2(im.Col_PlotHistogramHovered, im.ImVec4(0.92, 0.18, 0.29, 1.00))
-  im.PushStyleColor2(im.Col_TextSelectedBg, im.ImVec4(0.92, 0.18, 0.29, 0.43))
-  im.PushStyleColor2(im.Col_PopupBg, im.ImVec4(0.20, 0.22, 0.27, 0.9))
-  im.PushStyleColor2(im.Col_TabActive, im.ImVec4(0.92, 0.18, 0.29, 1.00))
-end
-
-local function imPopStyle()
-  im.PopStyleVar(11)
-  im.PopStyleColor(38)
-end
-
 local function imButton(text, height)
   return im.Button(text, im.ImVec2(im.GetContentRegionAvailWidth(), height or 30))
 end
@@ -849,10 +956,16 @@ local function renderSkyboxOptions()
     for _, sky in ipairs(skyDirs) do
       if im.Selectable1(sky.name, sky == skyboxManager.activeSky) then
         skyboxManager.activeSky = sky
-        skyboxManager:createSky()
+        if skyboxOptions["enable"].value[0] then
+          skyboxManager:createSky()
+        end
       end
     end
     im.EndCombo()
+  end
+
+  if im.ColorEdit4(skyboxOptions["skyColor"].name, skyboxOptions["skyColor"].value) then
+    skyboxOptions["skyColor"].setter(skyboxOptions["skyColor"].value, ctx)
   end
 
   if imButton("Reload Sky") then
@@ -908,7 +1021,7 @@ local function drawWindowContent()
 
     if im.BeginTabItem("Skybox") then
       renderSkyboxOptions()
-      if imButton("Open Creator") then
+      if imButton("Open Skybox Converter (Experimental)", 40) then
         skyboxCreator.openUI(true)
       end
       im.EndTabItem()
@@ -956,7 +1069,7 @@ local function imRender()
     return
   end
 
-  pushImStyle()
+  imStyle.pushImStyle()
 
   im.SetNextWindowSizeConstraints(im.ImVec2(500, 800), im.ImVec2(500, 800))
   if im.Begin("GFX Suite v" .. version, showUI, im.WindowFlags_AlwaysAutoResize+im.WindowFlags_NoResize) then
@@ -964,18 +1077,14 @@ local function imRender()
     im.End()
   end
 
-  imPopStyle()
+  skyboxCreator:onUpdate()
+
+  imStyle.imPopStyle()
 end
 
 local function toggleWindow()
   showUI[0] = not showUI[0]
   log('I', '', "GFX Suite is now " .. (showUI[0] and "visible" or "hidden"))
-end
-
-local function onSettingsChanged()
-  local vm = GFXDevice.getVideoMode()
-  screenWidth = vm.width
-  screenHeight = vm.height
 end
 
 local function onUpdate(dt)
@@ -1001,9 +1110,6 @@ local function onUpdate(dt)
 
   if ctx["tonemappingFx"] == nil then
     ctx["tonemappingFx"] = scenetree.findObject("CustomTonemapPostFx")
-    -- if ctx["tonemappingFx"] then
-    --   ctx["tonemappingFx"]:setField("sampler", "lutTex", "art/luts/neutral.png")
-    -- end
     return
   end
 
@@ -1018,29 +1124,53 @@ local function onUpdate(dt)
     return
   end
 
-  ctx["sky"] = scenetree.findObject("sunsky")
+  if ctx["sky"] == nil then
+    ctx["sky"] = scenetree.findObject("sunsky")
+    return
+  end
+
+  if ctx["clouds"] == nil then
+    ctx["clouds"] = {}
+    for _, objName in ipairs(scenetree.findClassObjects("CloudLayer")) do
+      local cloud = scenetree.findObject(objName)
+      if cloud then
+        table.insert(ctx["clouds"], cloud)
+      end
+    end
+  end
+
+  if ctx["ocean"] == nil then
+    for _, objName in ipairs(scenetree.findClassObjects("WaterPlane")) do
+      if string.find(objName, "Ocean") then
+        local ocean = scenetree.findObject(objName)
+        if ocean then
+          ctx["ocean"] = ocean
+          break
+        end
+      end
+    end
+  end
 
   if not isTablesRefreshed then
     refreshOptionsAll()
+
+    -- those need to be applied afterwards too for some reason
+    environmentOptions["time"].setter(environmentOptions["time"].value[0], ctx)
+    environmentOptions["azimuth"].setter(environmentOptions["azimuth"].value[0], ctx)
+
     log('I', '', "Setting tables refreshed")
     isTablesRefreshed = true
   end
 
   if ctx["fogNeedsUpdating"] then
     scenetree.theLevelInfo:postApply()
+    skyboxManager.setSunskyOptions(skyboxOptions["enable"].value[0])
     ctx["fogNeedsUpdating"] = false
   end
 
-  local screenSize = screenWidth .. " " .. screenHeight
-  local oneOverScreenSize = 1.0/screenWidth .. " " .. 1.0/screenHeight
-  ctx["caPostFx"]:setShaderConst("$screenResolution", screenSize)
-  ctx["highpassFx"]:setShaderConst("$screenResolution", screenSize)
-  ctx["adaptiveSharpenPostFx"]:setShaderConst("$pixelSize", oneOverScreenSize)
-  ctx["adaptiveSharpenPostFx1"]:setShaderConst("$pixelSize", oneOverScreenSize)
-
   imRender()
 
-  skyboxCreator:onUpdate()
+  -- print(getPlayerVehicle(0):getPosition())
 end
 
 local function onCameraToggled(parms)
@@ -1053,10 +1183,20 @@ local function onExit()
   saveSettings()
 end
 
+-- local function onTeleportedFromBigmap()
+  
+--   print("Teleported from bigmap")
+-- end
+
+local function onDeactivateBigMapCallback()
+  refreshOptionsAll()
+  skyboxManager.setSunskyOptions(skyboxOptions["enable"].value[0])
+end
+
 M.onExtensionLoaded = onExtensionLoaded
 M.onClientPostStartMission = onClientPostStartMission
+M.onDeactivateBigMapCallback = onDeactivateBigMapCallback
 M.onUpdate = onUpdate
-M.onSettingsChanged = onSettingsChanged
 M.onExit = onExit
 M.toggleWindow = toggleWindow
 M.onCameraToggled = onCameraToggled

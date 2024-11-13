@@ -12,7 +12,7 @@ cbuffer perDraw
     uniform float highPassSharpStrength;
     uniform float caAmount;
 
-    uniform float2 screenResolution;
+    uniform float2 oneOverTargetSize;
 
     PURE_POSTFX_UNIFORMS
     BNG_LIGHTING_UNIFORMS

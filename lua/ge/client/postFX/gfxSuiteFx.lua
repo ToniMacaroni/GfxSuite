@@ -2,6 +2,7 @@ if not scenetree.findObject("Custom_FXAA_PostEffect") then
     rerequire("client/postFx/fxaaCustom")
 end
 
+
 -- ========== Foliage SSS ==========
 
 local foliageSSSShader = scenetree.findObject("FoliageSSSShader")
@@ -32,6 +33,7 @@ if not foliageSSSFx then
     foliageSSSFx:registerObject("FoliageSSSFx")
 end
 
+
 -- ========== Chromatic aberration ==========
 
 local caShader = scenetree.findObject("CAShader")
@@ -53,9 +55,10 @@ if not caPostFx then
     caPostFx:setField("shader", 0, "CAShader")
     caPostFx:setField("stateBlock", 0, "PFX_DefaultStateBlock")
     caPostFx:setField("texture", 0, "$backBuffer")
-    caPostFx.renderPriority = 100
+    -- caPostFx.renderPriority = 100
     caPostFx:registerObject("CAPostFx")
 end
+
 
 -- ========== Highpass ==========
 
@@ -82,29 +85,7 @@ if not highpassPostFx then
     highpassPostFx:registerObject("HighpassPostFx")
 end
 
--- ========== Contact shadows ========== (NOT USED)
-
-local contactShadowsShader = scenetree.findObject("ContactShadowsShader")
-if not contactShadowsShader then
-    contactShadowsShader = createObject("ShaderData")
-    contactShadowsShader.DXVertexShaderFile    = "shaders/common/postFx/ContactShadows.hlsl"
-    contactShadowsShader.DXPixelShaderFile     = "shaders/common/postFx/ContactShadows.hlsl"
-    contactShadowsShader.pixVersion = 5.0
-    contactShadowsShader:registerObject("ContactShadowsShader")
-end
-
-local contactShadowsPostFx = scenetree.findObject("ContactShadowsPostFx")
-if not contactShadowsPostFx then
-    contactShadowsPostFx = createObject("PostEffect")
-    contactShadowsPostFx.isEnabled = false
-    contactShadowsPostFx:setField("renderTime", 0, "PFXAfterDiffuse")
-    contactShadowsPostFx:setField("shader", 0, "ContactShadowsShader")
-    contactShadowsPostFx:setField("stateBlock", 0, "PFX_DefaultStateBlock")
-    contactShadowsPostFx:setField("texture", 0, "$backBuffer")
-    contactShadowsPostFx:setField("texture", 1, "#prepass[Depth]")
-    contactShadowsPostFx:setField("texture", 2, "#prepass[RT0]")
-    contactShadowsPostFx:registerObject("ContactShadowsPostFx")
-end
+-- ========== Adaptive sharpening ==========
 
 local pfxAdaptiveSharpenShader1 = scenetree.findObject("PFX_AdaptiveSharpenShader1")
 if not pfxAdaptiveSharpenShader1 then
@@ -114,8 +95,6 @@ if not pfxAdaptiveSharpenShader1 then
     pfxAdaptiveSharpenShader1.pixVersion = 5.0
     pfxAdaptiveSharpenShader1:registerObject("PFX_AdaptiveSharpenShader1")
 end
-
--- ========== Adaptive sharpening ==========
 
 local pfxAdaptiveSharpenShader0 = scenetree.findObject("PFX_AdaptiveSharpenShader0")
 if not pfxAdaptiveSharpenShader0 then
@@ -129,10 +108,14 @@ local pfxAdaptiveSharpen = scenetree.findObject("AdaptiveSharpenPostFx")
 if not pfxAdaptiveSharpen then
     pfxAdaptiveSharpen = createObject("PostEffect")
     pfxAdaptiveSharpen.isEnabled = true
+    pfxAdaptiveSharpen.allowReflectPass = false
+    pfxAdaptiveSharpen:setField("renderTime", 0, "PFXBeforeBin")
+    pfxAdaptiveSharpen:setField("renderBin", 0, "ObjTranslucentBin")
     pfxAdaptiveSharpen:setField("shader", 0, "PFX_AdaptiveSharpenShader0")
     pfxAdaptiveSharpen:setField("stateBlock", 0, "PFX_DefaultStateBlock")
     pfxAdaptiveSharpen:setField("texture", 0, "$backBuffer")
     pfxAdaptiveSharpen:setField("target", 0, "$outTex")
+    pfxAdaptiveSharpen:setField("targetFormat", 0, "GFXFormatR16G16F")
     pfxAdaptiveSharpen:registerObject("AdaptiveSharpenPostFx")
 
     local pfxAdaptiveSharpen1 = createObject("PostEffect")
@@ -144,6 +127,74 @@ if not pfxAdaptiveSharpen then
     pfxAdaptiveSharpen1:registerObject("AdaptiveSharpenPostFx1")
     pfxAdaptiveSharpen:add(pfxAdaptiveSharpen1)
 end
+
+
+-- ========== Contact shadows ========== (NOT USED)
+
+local contactShadowsPostFx = scenetree.findObject("ContactShadowsPostFx")
+if not contactShadowsPostFx then
+    -- local contactShadowsPostFxCallbacks = {}
+    -- contactShadowsPostFxCallbacks.setShaderConsts = function ()
+    --     local fx = scenetree.findObject("ContactShadowsPostFx")
+    --     fx:setShaderConst("$radius", 1.0)
+    --     fx:setShaderConst("$power", 1.0)
+    --     log('I', '', "Contact shadows setShaderConsts")
+    -- end
+    -- rawset(_G, "contactShadowsPostFxCallbacks", contactShadowsPostFxCallbacks)
+
+    local contactShadowsShader = createObject("ShaderData")
+    contactShadowsShader.DXVertexShaderFile    = "shaders/common/postFx/ContactShadows.hlsl"
+    contactShadowsShader.DXPixelShaderFile     = "shaders/common/postFx/ContactShadows.hlsl"
+    contactShadowsShader.pixVersion = 5.0
+    contactShadowsShader.defines = "PASS0"
+    contactShadowsShader:registerObject("ContactShadowsShader0")
+
+    contactShadowsPostFx = createObject("PostEffect")
+    contactShadowsPostFx.isEnabled = true
+    contactShadowsPostFx.allowReflectPass = false
+    contactShadowsPostFx:setField("renderTime", 0, "PFXBeforeBin")
+    contactShadowsPostFx:setField("renderBin", 0, "ObjTranslucentBin")
+    contactShadowsPostFx:setField("shader", 0, "ContactShadowsShader0")
+    contactShadowsPostFx:setField("stateBlock", 0, "PFX_DefaultStateBlock")
+    contactShadowsPostFx:setField("texture", 0, "$backBuffer")
+    contactShadowsPostFx:setField("texture", 1, "#prepass[Depth]")
+    contactShadowsPostFx:setField("texture", 2, "#prepass[RT0]")
+    contactShadowsPostFx:setShaderConst("$radius", 1.0)
+    contactShadowsPostFx:setShaderConst("$power", 1.0)
+    -- contactShadowsPostFx:setField("target", 0, "#commonTexx1")
+    contactShadowsPostFx:setField("target", 0, "$backBuffer")
+    contactShadowsPostFx:registerObject("contactShadowsPostFx")
+
+    -- local contactShadowsPostFx1 = createObject("PostEffect")
+    -- -- contactShadowsPostFx1:setField("renderTime", 0, "PFXAfterDiffuse")
+    -- contactShadowsPostFx1:setField("shader", 0, "ContactShadowsShader1")
+    -- contactShadowsPostFx1:setField("stateBlock", 0, "PFX_DefaultStateBlock")
+    -- contactShadowsPostFx1:setField("texture", 0, "$backBuffer")
+    -- contactShadowsPostFx1:setField("texture", 1, "#prepass[Depth]")
+    -- contactShadowsPostFx1:setField("texture", 2, "#prepass[RT0]")
+    -- contactShadowsPostFx1:setField("texture", 3, "#commonTexx1")
+    -- contactShadowsPostFx1:setField("texture", 4, "$backBuffer")
+    -- contactShadowsPostFx1:setField("texture", 5, "$backBuffer")
+    -- contactShadowsPostFx1:setField("target", 0, "#SSR_ColorTex")
+    -- -- contactShadowsPostFx1:setField("target", 0, "$backBuffer")
+    -- contactShadowsPostFx1:registerObject("contactShadowsPostFx1")
+    -- contactShadowsPostFx:add(contactShadowsPostFx1)
+
+    -- local contactShadowsPostFx2 = createObject("PostEffect")
+    -- -- contactShadowsPostFx1:setField("renderTime", 0, "PFXAfterDiffuse")
+    -- contactShadowsPostFx2:setField("shader", 0, "ContactShadowsShader2")
+    -- contactShadowsPostFx2:setField("stateBlock", 0, "PFX_DefaultStateBlock")
+    -- contactShadowsPostFx2:setField("texture", 0, "$backBuffer")
+    -- contactShadowsPostFx2:setField("texture", 1, "#prepass[Depth]")
+    -- contactShadowsPostFx2:setField("texture", 2, "#prepass[RT0]")
+    -- contactShadowsPostFx2:setField("texture", 3, "#commonTexx1")
+    -- contactShadowsPostFx2:setField("texture", 4, "$backBuffer")
+    -- contactShadowsPostFx2:setField("texture", 5, "#SSR_ColorTex")
+    -- contactShadowsPostFx2:setField("target", 0, "$backBuffer")
+    -- contactShadowsPostFx2:registerObject("contactShadowsPostFx2")
+    -- contactShadowsPostFx:add(contactShadowsPostFx2)
+end
+
 
 -- ========== Custom Tonemap ==========
 
@@ -167,3 +218,17 @@ if not customTonemapPostFx then
     customTonemapPostFx.renderPriority = 9999
     customTonemapPostFx:registerObject("CustomTonemapPostFx")
 end
+
+
+-- ========== Custom ScatterSky ==========
+
+local existingScatterSky = scenetree.findObject("ScatterSkyShaderData")
+if existingScatterSky then
+    existingScatterSky:delete()
+end
+
+local scatterSkyShaderData = createObject("ShaderData")
+scatterSkyShaderData.DXVertexShaderFile = "shaders/common/postFx/customScatterSkyV.hlsl"
+scatterSkyShaderData.DXPixelShaderFile  = "shaders/common/postFx/customScatterSkyP.hlsl"
+scatterSkyShaderData.pixVersion = 5.0;
+scatterSkyShaderData:registerObject("ScatterSkyShaderData")

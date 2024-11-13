@@ -18,6 +18,16 @@ cbuffer perDraw
     uniform float pedestal;
     uniform float lutStrength;
 
+    // --
+    uniform float gain;
+    uniform float agx_mix;
+    uniform float agx_mix_exp;
+    uniform float agx_slope;
+    uniform float agx_power;
+    uniform float agx_sat;
+    uniform float agx_sat_dependency;
+    // --
+
     uniform float hue;
     uniform float saturation;
     uniform float exposure;

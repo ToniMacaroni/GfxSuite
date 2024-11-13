@@ -7,17 +7,48 @@
 
 uniform_sampler2D(backBuffer, 0);
 uniform_sampler2D(prepassDepthTex, 1);
-uniform_sampler2D(prepass1Tex, 2);
+uniform_sampler2D(prepassTex, 2);
 
-cbuffer perDraw
+cbuffer perDraw  : register(b0)
 {
-    float4x4 worldToCamera;
-    float4x4 worldToScreenPos0;
     uniform float3 eyePosWorld;
     uniform float exitDepth;
+    uniform float4x4 matWorldToScreen;
+    uniform float4x4 matScreenToWorld;
+    uniform float2 oneOverTargetSize;
+    uniform float2 targetSize;
+    uniform float radius;
+    uniform float power;
+    uniform float3 lightDirection;
+    uniform float targetRatio;
     
     PURE_POSTFX_UNIFORMS
     BNG_LIGHTING_UNIFORMS
+};
+
+struct Ray
+{
+    float3 origin;
+    float3 dir;
+    float step;
+    float3 pos;
+};
+
+struct SceneData
+{
+    float3 eyedir;
+    float3 normal;
+    float3 position;
+    float depth;
+};
+
+struct TraceData
+{
+    int num_steps;
+    int num_refines;
+    float2 uv;
+    float3 error;
+    bool hit;
 };
 
 #include "shaders/common/lighting.hlsl"
