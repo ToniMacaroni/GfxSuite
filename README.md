@@ -1,4 +1,4 @@
-# GfxSuite
+# GfxSuite ( [Discord Discussion](https://discord.com/channels/710082165253079061/1292527375028064276) | [Forum Discussion](https://www.beamng.com/threads/gfx-suite-graphics-utility-skybox-manager-more.100512/) )
 A mod that aims to change various parts of the graphics pipeline in the game and also gives players more control over not only the final look but all sorts of settings.
 
 It's my first mod, so if there are any issues please let me know ^^.
